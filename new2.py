@@ -18,7 +18,7 @@ midi_tokenizer = MusicTokenizer.from_pretrained("midi_tokenizer/tokenizer.json")
 
 encoder = T5EncoderModel.from_pretrained("google/flan-t5-small")
 for param in encoder.parameters():
-    param.requires_grad = False  # Freeze encoder
+    param.requires_grad = False
 
 decoder_config = GPT2Config(
     vocab_size=midi_tokenizer.vocab_size,
@@ -35,10 +35,8 @@ decoder_config = GPT2Config(
 
 decoder = GPT2LMHeadModel(decoder_config)
 
-# Create model with proper config
 model = EncoderDecoderModel(encoder=encoder, decoder=decoder)
 
-# CRITICAL: Set generation config properly
 model.config.decoder_start_token_id = midi_tokenizer["BOS_None"]
 model.config.pad_token_id = midi_tokenizer["PAD_None"]
 model.config.eos_token_id = midi_tokenizer["EOS_None"]
@@ -151,11 +149,9 @@ trainer.train()
 print("Saving model...")
 model.save_pretrained("./text2midi_model")
 
-# Save tokenizers separately
 text_tokenizer.save_pretrained("./text2midi_model/text_tokenizer")
 midi_tokenizer.save_pretrained("./text2midi_model/midi_tokenizer")
 
-# NEW: Save components individually for better loading
 encoder.save_pretrained("./text2midi_model/encoder")
 decoder.save_pretrained("./text2midi_model/decoder")
 

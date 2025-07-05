@@ -70,6 +70,6 @@ def text_to_midi(prompt: str, output_path: str = "output.mid"):
 # Example usage
 if __name__ == "__main__":
     text_to_midi(
-        "generate music, a happy piano tune",
+        "generate music, sad guitar tune",
         "drum_solo.mid"
     )
