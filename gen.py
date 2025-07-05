@@ -1,9 +1,19 @@
 import torch
-from transformers import T5Tokenizer, EncoderDecoderModel
+import numpy as np
+from miditoolkit import MidiFile
+from transformers import T5Tokenizer, T5EncoderModel, GPT2LMHeadModel, EncoderDecoderModel
 from miditok import MusicTokenizer
-from pathlib import Path
+import symusic
 
-model = EncoderDecoderModel.from_pretrained("./text2midi_model").to("cuda")
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
+
+encoder = T5EncoderModel.from_pretrained("./text2midi_model/encoder").to(device)
+decoder = GPT2LMHeadModel.from_pretrained("./text2midi_model/decoder").to(device)
+model = EncoderDecoderModel(encoder=encoder, decoder=decoder).to(device)
+model.eval()
+
 text_tokenizer = T5Tokenizer.from_pretrained("./text2midi_model/text_tokenizer")
 midi_tokenizer = MusicTokenizer.from_pretrained("./text2midi_model/midi_tokenizer")
 
@@ -16,13 +26,22 @@ model.config.pad_token_id = pad_token_id
 model.config.eos_token_id = eos_token_id
 
 def text_to_midi(prompt: str, output_path: str = "output.mid"):
+
+    inputs = text_tokenizer(prompt, return_tensors="pt").to(device)
     
-    inputs = text_tokenizer(prompt, return_tensors="pt").to("cuda")
+
+    decoder_input = torch.full(
+        (inputs.input_ids.shape[0], 1),
+        bos_token_id,
+        device=device,
+        dtype=torch.long
+    )
     
-    
+
     outputs = model.generate(
         input_ids=inputs.input_ids,
         attention_mask=inputs.attention_mask,
+        decoder_input_ids=decoder_input,
         max_new_tokens=512,
         temperature=0.9,
         top_k=50,
@@ -30,26 +49,27 @@ def text_to_midi(prompt: str, output_path: str = "output.mid"):
         do_sample=True,
         pad_token_id=pad_token_id,
         eos_token_id=eos_token_id,
-        early_stopping=True,
-        decoder_input_ids = midi_tokenizer["BOS_None"]
+        early_stopping=True
     )
     
-    generated_tokens = outputs[0].cpu().numpy()
-    valid_tokens = [t for t in generated_tokens if t < midi_tokenizer.vocab_size]
+
+    tokens = outputs[0].cpu().numpy()
+    valid_tokens = [
+        t for t in tokens 
+        if t < midi_tokenizer.vocab_size 
+        and t not in [pad_token_id, bos_token_id]
+    ]
     
     if eos_token_id in valid_tokens:
         valid_tokens = valid_tokens[:valid_tokens.index(eos_token_id)]
     
-    if valid_tokens:
-        midi = midi_tokenizer.decode(valid_tokens)
-        midi.dump(output_path)
-        print(f"✅ Generated MIDI saved to {output_path}")
-        return True
-    else:
-        print("❌ No valid tokens generated")
-        return False
+    tokens_2d = np.array([valid_tokens])
+    output_symusic = midi_tokenizer.decode(tokens_2d)
+    output_symusic.dump_midi(output_path)
 
-text_to_midi(
-    "a fast-paced electronic drum solo with heavy bass",
-    "drum_solo.mid"
-)
+# Example usage
+if __name__ == "__main__":
+    text_to_midi(
+        "generate music, a happy piano tune",
+        "drum_solo.mid"
+    )
