@@ -18,7 +18,7 @@ midi_tokenizer = MusicTokenizer.from_pretrained("midi_tokenizer/tokenizer.json")
 
 encoder = T5EncoderModel.from_pretrained("google/flan-t5-small")
 for param in encoder.parameters():
-    param.requires_grad = False
+    param.requires_grad = False 
 
 decoder_config = GPT2Config(
     vocab_size=midi_tokenizer.vocab_size,
@@ -112,10 +112,9 @@ data_collator = Text2MIDICollator(
     label_pad_token_id=-100,
     max_length=512  )
 
-# Modified training arguments
 training_args = Seq2SeqTrainingArguments(
     output_dir="./text2midi_model",
-    per_device_train_batch_size=2,
+    per_device_train_batch_size=8,
     num_train_epochs=10,
     learning_rate=5e-5,
     logging_dir='./logs',
@@ -146,7 +145,6 @@ trainer = Seq2SeqTrainer(
     )
 
 trainer.train() 
-print("Saving model...")
 model.save_pretrained("./text2midi_model")
 
 text_tokenizer.save_pretrained("./text2midi_model/text_tokenizer")
@@ -155,4 +153,3 @@ midi_tokenizer.save_pretrained("./text2midi_model/midi_tokenizer")
 encoder.save_pretrained("./text2midi_model/encoder")
 decoder.save_pretrained("./text2midi_model/decoder")
 
-print("Training complete! Model saved in multiple formats.")
